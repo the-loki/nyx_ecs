@@ -15,7 +15,7 @@ namespace nyx::ecs
     {
         static constexpr size_t max_size = (ChunkSize / sizeof(T));
 
-        size_t size{0};
+        size_t size_{0};
 
         T& operator[](size_t index);
 
@@ -27,44 +27,43 @@ namespace nyx::ecs
         chunk& operator=(chunk&& o) noexcept;
 
     private:
-        T* data{nullptr};
-        uint8_t* store{nullptr};
+        T* data_{nullptr};
+        std::unique_ptr<std::byte[]> store_{nullptr};
     };
 
     template <typename T, size_t ChunkSize>
     T& chunk<T, ChunkSize>::operator[](size_t index)
     {
-        return data[index];
+        return data_[index];
     }
 
     template <typename T, size_t ChunkSize>
     chunk<T, ChunkSize>::chunk()
     {
-        store = new uint8_t[ChunkSize];
-        data = reinterpret_cast<T*>(store);
+        store_ = std::make_unique<std::byte[]>(ChunkSize);
+        data_ = reinterpret_cast<T*>(store_.get());
     }
 
     template <typename T, size_t ChunkSize>
     chunk<T, ChunkSize>::~chunk()
     {
-        for (int i = 0; i < size; ++i)
+        for (int i = 0; i < size_; ++i)
         {
-            data[i].~T();
+            data_[i].~T();
         }
 
-        size = 0;
-        delete[] store;
+        size_ = 0;
     }
 
     template <typename T, size_t ChunkSize>
     chunk<T, ChunkSize>::chunk(chunk&& o) noexcept
-        : size(o.size)
-          , data(o.data)
-          , store(o.store)
+        : size_(o.size_)
+          , data_(o.data_)
+          , store_(std::move(o.store_))
     {
-        o.size = 0;
-        o.data = nullptr;
-        o.store = nullptr;
+        o.size_ = 0;
+        o.data_ = nullptr;
+        o.store_.reset();
     }
 
     template <typename T, size_t ChunkSize>
@@ -72,20 +71,13 @@ namespace nyx::ecs
     {
         if (this != &o)
         {
-            for (int i = 0; i < size; ++i)
-            {
-                data[i].~T();
-            }
-
-            delete[] store;
-
-            size = o.size;
-            data = o.data;
-            store = o.store;
+            size_ = o.size_;
+            data_ = o.data_;
+            store_ = std::move(o.store_);
 
             o.size = 0;
-            o.data = nullptr;
-            o.store = nullptr;
+            o.data_ = nullptr;
+            o.store_.reset();
         }
         return *this;
     }
