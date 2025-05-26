@@ -104,7 +104,6 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         return *this;
     }
 
-
     template <typename T>
     struct flex_array
     {
@@ -224,5 +223,10 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         size_--;
     }
 
-
+    template<typename KeyType, typename ValueType>
+    struct dense_map
+    {
+        using key_type = KeyType;
+        using value_type = ValueType;
+    };
 }
