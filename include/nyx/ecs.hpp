@@ -161,7 +161,6 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         flex_array<T> packed_;
         flex_array<size_t> sparse_;
         flex_array<size_t> packed_index_;
-        size_t last_add_index_{0};
     };
 
     template <typename T>
