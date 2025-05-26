@@ -1,16 +1,26 @@
-#include <nyx/ecs.hpp>
-#include <iostream>
 
-#include "nyx/chunk.hpp"
+#include <iostream>
+#include "nyx/ecs.hpp"
+
+
+struct vector_2d
+{
+    int x;
+    int y;
+};
+
 
 
 int main()
 {
-    nyx::ecs::chunk<int> chunk;
-    auto size = decltype(chunk)::max_size;
-    chunk[0] = 1;
-    chunk[1] = 2;
-    chunk[2] = 3;
+    auto entity = 9999999;
+    nyx::ecs::sparse_set<vector_2d> storage;
+    storage.set(entity, vector_2d{.x = 100, .y = 200});
+
+    storage.remove(entity);
+
+
+
 
     return 0;
 }
