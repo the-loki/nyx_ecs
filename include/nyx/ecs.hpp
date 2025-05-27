@@ -31,7 +31,6 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         static constexpr size_t max_size = (ChunkSize / sizeof(T));
 
         T& operator[](size_t index);
-        void fill(const T& value);
 
         chunk();
         ~chunk();
@@ -53,19 +52,11 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     }
 
     template <typename T, size_t ChunkSize>
-    void chunk<T, ChunkSize>::fill(const T& value)
-    {
-        for (int i = 0; i < max_size; i++)
-        {
-            data_[i] = value;
-        }
-    }
-
-    template <typename T, size_t ChunkSize>
     chunk<T, ChunkSize>::chunk()
     {
         store_ = std::make_unique<std::byte[]>(nyx_chunk_size);
         data_ = reinterpret_cast<T*>(store_.get());
+        memset(store_.get(), 0xff , ChunkSize);
     }
 
     template <typename T, size_t ChunkSize>
@@ -110,7 +101,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     struct flex_array
     {
         T& operator[](size_t index);
-        void alloc(size_t size, const T& value = T{});
+        void alloc(size_t size);
         [[nodiscard]] size_t size() const;
 
     private:
@@ -127,7 +118,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     }
 
     template <typename T>
-    void flex_array<T>::alloc(const size_t size, const T& value)
+    void flex_array<T>::alloc(const size_t size)
     {
         if (size <= size_)
         {
@@ -138,7 +129,6 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         for (auto i = chunks_.size(); i < chunk_index + 1; ++i)
         {
             chunks_.emplace_back();
-            chunks_[chunks_.size() - 1].fill(value);
         }
 
         size_ = chunks_.size() * chunk<T>::max_size;
@@ -158,6 +148,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         std::optional<T&> get(size_t index);
         void set(size_t index, T&& value);
         void remove(size_t index);
+        void shrink_to_fit();
 
     private:
         size_t size_{0};
@@ -181,12 +172,12 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     {
         if (sparse_.size() <= index)
         {
-            sparse_.alloc(index + 1, max_size_t);
+            sparse_.alloc(index + 1);
         }
 
         if (sparse_[index] != max_size_t)
         {
-            packed_[sparse_[index]] = packed_type{index, value};
+            packed_[sparse_[index]] =  std::make_pair(index, std::forward<T>(value));
             return;
         }
 
@@ -196,7 +187,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         }
 
         sparse_[index] = size_;
-        packed_[size_] = packed_type{index, value};
+        packed_[size_] = std::make_pair(index, std::forward<T>(value));
         ++size_;
     }
 
@@ -213,14 +204,21 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
             return;
         }
 
-        auto last_element_index = packed_[size_ - 1].first;
-        packed_[sparse_[index]] = {index, std::move(packed_[size_ - 1].second)};
-        sparse_[last_element_index] = sparse_[index];
+        const auto tail_index = size_ - 1;
+        auto&& [move_index, value] = packed_[tail_index];
+        packed_[sparse_[index]] = {index, std::move(value)};
+        sparse_[move_index] = sparse_[index];
 
         sparse_[index] = max_size_t;
-        packed_[size_ - 1] = packed_type{max_size_t, {}};
+        packed_[tail_index] = std::make_pair(max_size_t, T{});
 
         size_--;
+    }
+
+    template <typename T>
+    void sparse_set<T>::shrink_to_fit()
+    {
+        //not impl.
     }
 
     template<typename KeyType, typename ValueType>
