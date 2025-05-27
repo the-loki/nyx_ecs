@@ -13,14 +13,12 @@ struct vector_2d
 
 int main()
 {
-    auto entity = 9999999;
     nyx::ecs::sparse_set<vector_2d> storage;
-    storage.set(entity, vector_2d{.x = 100, .y = 200});
+    storage.set(10, vector_2d{.x = 100, .y = 200});
+    storage.set(20, vector_2d{.x = 1, .y = 2});
 
-    storage.remove(entity);
-
-
-
+    storage.remove(10);
+    storage.remove(20);
 
     return 0;
 }

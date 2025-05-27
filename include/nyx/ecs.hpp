@@ -5,7 +5,9 @@
 
 #pragma once
 
+#include <chrono>
 #include <vector>
+#include <utility>
 #include <optional>
 
 namespace nyx::ecs
@@ -151,15 +153,16 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     template <typename T>
     struct sparse_set
     {
+        using packed_type = std::pair<size_t, T>;
+
         std::optional<T&> get(size_t index);
         void set(size_t index, T&& value);
         void remove(size_t index);
 
     private:
         size_t size_{0};
-        flex_array<T> packed_;
         flex_array<size_t> sparse_;
-        flex_array<size_t> packed_index_;
+        flex_array<packed_type> packed_;
     };
 
     template <typename T>
@@ -183,19 +186,17 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
 
         if (sparse_[index] != max_size_t)
         {
-            packed_[sparse_[index]] = value;
+            packed_[sparse_[index]] = packed_type{index, value};
             return;
         }
 
         if (size_ >= packed_.size())
         {
             packed_.alloc(size_ + 1);
-            packed_index_.alloc(size_ + 1, max_size_t);
         }
 
         sparse_[index] = size_;
-        packed_[size_] = value;
-        packed_index_[size_] = index;
+        packed_[size_] = packed_type{index, value};
         ++size_;
     }
 
@@ -212,13 +213,12 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
             return;
         }
 
-        packed_[sparse_[index]] = packed_[size_ - 1];
-        sparse_[packed_index_[size_ - 1]] = sparse_[index];
-        packed_[size_ - 1] = T{};
+        auto last_element_index = packed_[size_ - 1].first;
+        packed_[sparse_[index]] = {index, std::move(packed_[size_ - 1].second)};
+        sparse_[last_element_index] = sparse_[index];
 
-        packed_index_[sparse_[index]] = packed_index_[size_ - 1];
-        packed_index_[size_ - 1] = max_size_t;
         sparse_[index] = max_size_t;
+        packed_[size_ - 1] = packed_type{max_size_t, {}};
 
         size_--;
     }
