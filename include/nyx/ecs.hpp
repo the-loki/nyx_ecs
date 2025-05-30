@@ -56,7 +56,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     {
         store_ = std::make_unique<std::byte[]>(nyx_chunk_size);
         data_ = reinterpret_cast<T*>(store_.get());
-        memset(store_.get(), 0xff , ChunkSize);
+        memset(store_.get(), 0xff, ChunkSize);
     }
 
     template <typename T, size_t ChunkSize>
@@ -100,14 +100,21 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     template <typename T>
     struct flex_array
     {
+        void addChunk();
         T& operator[](size_t index);
-        void alloc(size_t size);
+        size_t resize(size_t size);
         [[nodiscard]] size_t size() const;
 
     private:
         size_t size_{0};
         std::vector<chunk<T>> chunks_;
     };
+
+    template <typename T>
+    void flex_array<T>::addChunk()
+    {
+        resize(size_ + 1);
+    }
 
     template <typename T>
     T& flex_array<T>::operator[](size_t index)
@@ -118,20 +125,33 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     }
 
     template <typename T>
-    void flex_array<T>::alloc(const size_t size)
+    size_t flex_array<T>::resize(const size_t size)
     {
-        if (size <= size_)
+        const auto chunk_index = size / chunk<T>::max_size;
+        const auto target_chunk_size = chunk_index + 1;
+
+        if (target_chunk_size == chunks_.size())
         {
-            return;
+            return size_;
         }
 
-        const auto chunk_index = size / chunk<T>::max_size;
-        for (auto i = chunks_.size(); i < chunk_index + 1; ++i)
+        if (target_chunk_size > chunks_.size())
         {
-            chunks_.emplace_back();
+            for (auto i = chunks_.size(); i < target_chunk_size; ++i)
+            {
+                chunks_.emplace_back();
+            }
+        }
+        else
+        {
+            for (auto i = chunks_.size(); i > target_chunk_size; --i)
+            {
+                chunks_.pop_back();
+            }
         }
 
         size_ = chunks_.size() * chunk<T>::max_size;
+        return size_;
     }
 
     template <typename T>
@@ -172,18 +192,18 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     {
         if (sparse_.size() <= index)
         {
-            sparse_.alloc(index + 1);
+            sparse_.addChunk();
         }
 
         if (sparse_[index] != max_size_t)
         {
-            packed_[sparse_[index]] =  std::make_pair(index, std::forward<T>(value));
+            packed_[sparse_[index]] = std::make_pair(index, std::forward<T>(value));
             return;
         }
 
         if (size_ >= packed_.size())
         {
-            packed_.alloc(size_ + 1);
+            packed_.addChunk();
         }
 
         sparse_[index] = size_;
@@ -221,7 +241,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         //not impl.
     }
 
-    template<typename KeyType, typename ValueType>
+    template <typename KeyType, typename ValueType>
     struct dense_map
     {
         using key_type = KeyType;
