@@ -48,5 +48,7 @@ int main()
     storage.remove(10);
     storage.remove(20);
 
+    storage.shrink_to_fit();
+
     return 0;
 }
