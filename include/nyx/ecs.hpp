@@ -26,22 +26,27 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     inline constexpr size_t max_size_type = std::numeric_limits<size_type>::max();
 
 
+    template <typename T>
+    concept legal_componet_type = requires
+    {
+        { T::__default_value__() } -> std::same_as<T>;
+    };
+
     template <typename T, size_type ChunkSize = nyx_chunk_size>
     struct chunk
     {
         static constexpr size_type max_size = (ChunkSize / sizeof(T));
 
-        T& operator[](size_type index);
-
-        chunk();
-        ~chunk();
+        explicit chunk(const T& value);
         chunk(const chunk&) = delete;
-        chunk operator=(const chunk&) = delete;
+        chunk& operator=(const chunk&) = delete;
         chunk(chunk&& o) noexcept;
         chunk& operator=(chunk&& o) noexcept;
+        ~chunk();
+
+        T& operator[](size_type index);
 
     private:
-        size_type size_{0};
         T* data_{nullptr};
         std::unique_ptr<std::byte[]> store_{nullptr};
     };
@@ -53,31 +58,27 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     }
 
     template <typename T, size_type ChunkSize>
-    chunk<T, ChunkSize>::chunk()
+    chunk<T, ChunkSize>::chunk(const T& value)
     {
         store_ = std::make_unique<std::byte[]>(nyx_chunk_size);
         data_ = reinterpret_cast<T*>(store_.get());
-        memset(store_.get(), 0xff, ChunkSize);
+        std::fill(data_, data_ + max_size, value);
     }
 
     template <typename T, size_type ChunkSize>
     chunk<T, ChunkSize>::~chunk()
     {
-        for (int i = 0; i < size_; ++i)
+        for (int i = 0; i < max_size; ++i)
         {
             data_[i].~T();
         }
-
-        size_ = 0;
     }
 
     template <typename T, size_type ChunkSize>
     chunk<T, ChunkSize>::chunk(chunk&& o) noexcept :
-        size_(o.size_)
-        , data_(o.data_)
+        data_(o.data_)
         , store_(std::move(o.store_))
     {
-        o.size_ = 0;
         o.data_ = nullptr;
         o.store_.reset();
     }
@@ -87,14 +88,13 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     {
         if (this != &o)
         {
-            size_ = o.size_;
             data_ = o.data_;
             store_ = std::move(o.store_);
 
-            o.size_ = 0;
             o.data_ = nullptr;
             o.store_.reset();
         }
+
         return *this;
     }
 
@@ -107,8 +107,15 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         void ensure_chunk_size(size_type size);
         [[nodiscard]] size_type size() const;
 
+        explicit flex_array(const T& default_value);
+        flex_array(const flex_array&) = delete;
+        flex_array& operator=(const flex_array&) = delete;
+        flex_array(flex_array&& o) = default;
+        flex_array& operator=(flex_array&& o) = default;
+
     private:
-        size_type size_{0};
+        size_type size_;
+        T default_value_;
         std::vector<chunk<T>> chunks_;
     };
 
@@ -141,7 +148,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     {
         for (auto i = chunks_.size(); i < size; ++i)
         {
-            chunks_.emplace_back();
+            chunks_.emplace_back(default_value_);
         }
 
         for (auto i = chunks_.size(); i > size; --i)
@@ -159,9 +166,21 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     }
 
     template <typename T>
+    flex_array<T>::flex_array(const T& default_value): size_(0)
+    {
+        default_value_ = default_value;
+    }
+
+    template <typename T>
     struct sparse_set
     {
-        using packed_type = std::pair<size_type, T>;
+        using value_type = T;
+
+        struct packed_type
+        {
+            value_type value;
+            size_type sparse_index;
+        };
 
         std::optional<T&> get(size_type index);
         void set(size_type index, T&& value);
@@ -170,8 +189,8 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
 
     private:
         size_type size_{0};
-        flex_array<size_type> sparse_;
-        flex_array<packed_type> packed_;
+        flex_array<packed_type> packed_{{}};
+        flex_array<size_type> sparse_{max_size_type};
     };
 
     template <typename T>
@@ -191,14 +210,14 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         sparse_.ensure(index);
         if (sparse_[index] != max_size_type)
         {
-            packed_[sparse_[index]] = std::make_pair(index, std::forward<T>(value));
+            packed_[sparse_[index]].value = std::forward<T>(value);
             return;
         }
 
         packed_.ensure(size_);
         sparse_[index] = size_;
-        packed_[size_] = std::make_pair(index, std::forward<T>(value));
-        ++size_;
+        packed_[size_] = {std::forward<T>(value), index};
+        size_++;
     }
 
     template <typename T>
@@ -215,12 +234,12 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         }
 
         const auto tail_index = size_ - 1;
-        auto&& [move_index, value] = packed_[tail_index];
-        packed_[sparse_[index]] = {index, std::move(value)};
+        auto&& [value, move_index] = packed_[tail_index];
+        packed_[sparse_[index]] = {std::move(value), index};
         sparse_[move_index] = sparse_[index];
 
         sparse_[index] = max_size_type;
-        packed_[tail_index] = std::make_pair(max_size_type, T{});
+        packed_[tail_index] = {T{}, max_size_type};
         size_--;
     }
 
@@ -239,7 +258,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
 
             for (size_type i = 0; i < size_; i++)
             {
-                max_index = std::max(max_index, packed_[i].first);
+                max_index = std::max(max_index, packed_[i].sparse_index);
             }
 
             sparse_.ensure(max_index);
@@ -254,5 +273,20 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     {
         using key_type = KeyType;
         using value_type = ValueType;
+
+        struct packed_type
+        {
+            key_type key;
+            size_type next;
+            value_type value;
+            size_type sparse_index;
+        };
+
+    private:
+        size_type size_{0};
+        flex_array<size_type> sparse_;
+        flex_array<packed_type> packed_;
     };
+
+
 }
