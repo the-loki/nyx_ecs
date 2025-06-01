@@ -25,13 +25,6 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     using entity_type = size_t;
     inline constexpr size_t max_size_type = std::numeric_limits<size_type>::max();
 
-
-    template <typename T>
-    concept legal_componet_type = requires
-    {
-        { T::__default_value__() } -> std::same_as<T>;
-    };
-
     template <typename T, size_type ChunkSize = nyx_chunk_size>
     struct chunk
     {
@@ -40,62 +33,46 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         explicit chunk(const T& value);
         chunk(const chunk&) = delete;
         chunk& operator=(const chunk&) = delete;
-        chunk(chunk&& o) noexcept;
-        chunk& operator=(chunk&& o) noexcept;
+        chunk(chunk&&) = default;
+        chunk& operator=(chunk&&) = default;
         ~chunk();
 
         T& operator[](size_type index);
 
     private:
-        T* data_{nullptr};
         std::unique_ptr<std::byte[]> store_{nullptr};
     };
 
     template <typename T, size_type ChunkSize>
     T& chunk<T, ChunkSize>::operator[](size_type index)
     {
-        return data_[index];
+        const auto data =reinterpret_cast<T*>(store_.get());
+        return data[index];
     }
 
     template <typename T, size_type ChunkSize>
     chunk<T, ChunkSize>::chunk(const T& value)
     {
         store_ = std::make_unique<std::byte[]>(nyx_chunk_size);
-        data_ = reinterpret_cast<T*>(store_.get());
-        std::fill(data_, data_ + max_size, value);
+
+        const auto data =reinterpret_cast<T*>(store_.get());
+        std::fill(data, data + max_size, value);
     }
 
     template <typename T, size_type ChunkSize>
     chunk<T, ChunkSize>::~chunk()
     {
+        const auto data =reinterpret_cast<T*>(store_.get());
+
+        if (data == nullptr)
+        {
+            return;
+        }
+
         for (int i = 0; i < max_size; ++i)
         {
-            data_[i].~T();
+           data[i].~T();
         }
-    }
-
-    template <typename T, size_type ChunkSize>
-    chunk<T, ChunkSize>::chunk(chunk&& o) noexcept :
-        data_(o.data_)
-        , store_(std::move(o.store_))
-    {
-        o.data_ = nullptr;
-        o.store_.reset();
-    }
-
-    template <typename T, size_type ChunkSize>
-    chunk<T, ChunkSize>& chunk<T, ChunkSize>::operator=(chunk&& o) noexcept
-    {
-        if (this != &o)
-        {
-            data_ = o.data_;
-            store_ = std::move(o.store_);
-
-            o.data_ = nullptr;
-            o.store_.reset();
-        }
-
-        return *this;
     }
 
     template <typename T>
@@ -107,7 +84,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         void ensure_chunk_size(size_type size);
         [[nodiscard]] size_type size() const;
 
-        explicit flex_array(const T& default_value);
+        explicit flex_array(const T& value);
         flex_array(const flex_array&) = delete;
         flex_array& operator=(const flex_array&) = delete;
         flex_array(flex_array&& o) = default;
@@ -166,9 +143,9 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     }
 
     template <typename T>
-    flex_array<T>::flex_array(const T& default_value): size_(0)
+    flex_array<T>::flex_array(const T& value): size_(0)
     {
-        default_value_ = default_value;
+        default_value_ = value;
     }
 
     template <typename T>
@@ -181,6 +158,13 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
             value_type value;
             size_type sparse_index;
         };
+
+
+        sparse_set() = default;
+        sparse_set(const packed_type& o) = delete;
+        sparse_set& operator=(const packed_type& o) = delete;
+        sparse_set(sparse_set&& o) = default;
+        sparse_set& operator=(sparse_set&& o) = default;
 
         std::optional<T&> get(size_type index);
         void set(size_type index, T&& value);
@@ -282,11 +266,27 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
             size_type sparse_index;
         };
 
+        void set(const key_type& key, value_type&& value);
+        void set(const key_type& key, const value_type& value);
+
     private:
         size_type size_{0};
-        flex_array<size_type> sparse_;
-        flex_array<packed_type> packed_;
+        flex_array<size_type> sparse_ {max_size_type};
+        flex_array<packed_type> packed_{{}};
     };
+
+
+    template <typename KeyType, typename ValueType>
+    void dense_map<KeyType, ValueType>::set(const key_type& key, value_type&& value)
+    {
+
+    }
+
+    template <typename KeyType, typename ValueType>
+    void dense_map<KeyType, ValueType>::set(const key_type& key, const value_type& value)
+    {
+
+    }
 
 
 }
