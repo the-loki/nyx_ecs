@@ -46,7 +46,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     template <typename T, size_type ChunkSize>
     T& chunk<T, ChunkSize>::operator[](size_type index)
     {
-        const auto data =reinterpret_cast<T*>(store_.get());
+        const auto data = reinterpret_cast<T*>(store_.get());
         return data[index];
     }
 
@@ -55,14 +55,14 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     {
         store_ = std::make_unique<std::byte[]>(nyx_chunk_size);
 
-        const auto data =reinterpret_cast<T*>(store_.get());
+        const auto data = reinterpret_cast<T*>(store_.get());
         std::fill(data, data + max_size, value);
     }
 
     template <typename T, size_type ChunkSize>
     chunk<T, ChunkSize>::~chunk()
     {
-        const auto data =reinterpret_cast<T*>(store_.get());
+        const auto data = reinterpret_cast<T*>(store_.get());
 
         if (data == nullptr)
         {
@@ -71,7 +71,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
 
         for (int i = 0; i < max_size; ++i)
         {
-           data[i].~T();
+            data[i].~T();
         }
     }
 
@@ -143,7 +143,8 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     }
 
     template <typename T>
-    flex_array<T>::flex_array(const T& value): size_(0)
+    flex_array<T>::flex_array(const T& value):
+        size_(0)
     {
         default_value_ = value;
     }
@@ -271,7 +272,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
 
     private:
         size_type size_{0};
-        flex_array<size_type> sparse_ {max_size_type};
+        flex_array<size_type> sparse_{max_size_type};
         flex_array<packed_type> packed_{{}};
     };
 
@@ -285,8 +286,6 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     template <typename KeyType, typename ValueType>
     void dense_map<KeyType, ValueType>::set(const key_type& key, const value_type& value)
     {
-
+        set(key, std::move(value));
     }
-
-
 }
