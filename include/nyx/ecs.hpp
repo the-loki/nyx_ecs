@@ -19,11 +19,50 @@ namespace nyx::ecs
 inline constexpr size_t nyx_chunk_size = {(64 * 64)};
 #endif
 
-
     using size_type = size_t;
-    using typeid_type = size_t;
     using entity_type = size_t;
-    inline constexpr size_t max_size_type = std::numeric_limits<size_type>::max();
+    inline constexpr size_type bucket_count = 4096;
+    inline constexpr size_type max_size_type = std::numeric_limits<size_type>::max();
+
+    template <typename = size_type>
+    struct fnv_helper;
+
+    template <>
+    struct fnv_helper<uint32_t>
+    {
+        static constexpr size_type prime = 16777619;
+        static constexpr size_type offset = 2166136261;
+    };
+
+    template <>
+    struct fnv_helper<uint64_t>
+    {
+        static constexpr size_type prime = 1099511628211;
+        static constexpr size_type offset = 14695981039346656037;
+    };
+
+    //fnv1a hash
+    constexpr size_type hash_string(const std::string_view view)
+    {
+        size_type hash = fnv_helper<>::offset;
+        for (const auto c : view)
+        {
+            hash = (hash ^ static_cast<size_type>(c)) * fnv_helper<>::prime;
+        }
+
+        return hash;
+    }
+
+    constexpr size_type make_hash(const std::string_view view)
+    {
+        return hash_string(view);
+    }
+
+
+    constexpr size_type make_hash(const size_type value)
+    {
+        return value;
+    }
 
     template <typename T, size_type ChunkSize = nyx_chunk_size>
     struct chunk
@@ -167,7 +206,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         sparse_set(sparse_set&& o) = default;
         sparse_set& operator=(sparse_set&& o) = default;
 
-        std::optional<T&> get(size_type index);
+        T* get(size_type index);
         void set(size_type index, T&& value);
         void remove(size_type index);
         void shrink_to_fit();
@@ -179,14 +218,14 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     };
 
     template <typename T>
-    std::optional<T&> sparse_set<T>::get(const size_type index)
+    T* sparse_set<T>::get(const size_type index)
     {
-        if (packed_.size_ <= index)
+        if (sparse_.size() <= index)
         {
-            return std::nullopt;
+            return nullptr;
         }
 
-        return packed_[sparse_[index]];
+        return &(packed_[sparse_[index]].value);
     }
 
     template <typename T>
@@ -253,7 +292,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         sparse_.shrink_to_fit();
     }
 
-    template <typename KeyType, typename ValueType>
+    template <typename KeyType, typename ValueType, size_type BucketCount = bucket_count>
     struct dense_map
     {
         using key_type = KeyType;
@@ -269,6 +308,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
 
         void set(const key_type& key, value_type&& value);
         void set(const key_type& key, const value_type& value);
+        value_type* get(const key_type& key);
 
     private:
         size_type size_{0};
@@ -276,16 +316,70 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         flex_array<packed_type> packed_{{}};
     };
 
-
-    template <typename KeyType, typename ValueType>
-    void dense_map<KeyType, ValueType>::set(const key_type& key, value_type&& value)
+    template <typename KeyType, typename ValueType, size_type BucketCount>
+    void dense_map<KeyType, ValueType, BucketCount>::set(const key_type& key, value_type&& value)
     {
+        const auto index = make_hash(key) % BucketCount;
+        sparse_.ensure(index);
+        packed_.ensure(size_);
 
+        auto& packed = packed_[size_];
+        packed.key = key;
+        packed.sparse_index = index;
+        packed.next = max_size_type;
+        packed.value = std::move(value);
+
+        if (sparse_[index] == max_size_type)
+        {
+            sparse_[index] = size_;
+        }
+        else
+        {
+            auto cursor = &(packed_[sparse_[index]]);
+            while (cursor->next != max_size_type)
+            {
+                cursor = &(packed_[cursor->next]);
+            }
+
+            cursor->next = size_;
+        }
+
+        size_++;
     }
 
-    template <typename KeyType, typename ValueType>
-    void dense_map<KeyType, ValueType>::set(const key_type& key, const value_type& value)
+    template <typename KeyType, typename ValueType, size_type BucketCount>
+    void dense_map<KeyType, ValueType, BucketCount>::set(const key_type& key, const value_type& value)
     {
         set(key, std::move(value));
+    }
+
+    template <typename KeyType, typename ValueType, size_type BucketCount>
+    ValueType* dense_map<KeyType, ValueType, BucketCount>::get(const key_type& key)
+    {
+        const auto index = make_hash(key) % BucketCount;
+
+        if (sparse_[index] == max_size_type)
+        {
+            return nullptr;
+        }
+
+        auto cursor = &(packed_[sparse_[index]]);
+
+        if (cursor->key == key)
+        {
+            return &(cursor->value);
+        }
+
+        while (cursor->next != max_size_type)
+        {
+            cursor = &(packed_[cursor->next]);
+
+            if (cursor->key == key)
+            {
+                return &(cursor->value);
+            }
+        }
+
+        return nullptr;
     }
 }
