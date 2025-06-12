@@ -95,7 +95,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         store_ = std::make_unique<std::byte[]>(nyx_chunk_size);
 
         const auto data = reinterpret_cast<T*>(store_.get());
-        std::fill(data, data + max_size, value);
+        std::uninitialized_fill(data, data + max_size, value);
     }
 
     template <typename T, size_type ChunkSize>
@@ -312,8 +312,8 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
 
     private:
         size_type size_{0};
-        flex_array<size_type> sparse_{max_size_type};
         flex_array<packed_type> packed_{{}};
+        flex_array<size_type> sparse_{max_size_type};
     };
 
     template <typename KeyType, typename ValueType, size_type BucketCount>
