@@ -6,9 +6,9 @@
 #pragma once
 
 #include <chrono>
-#include <vector>
-#include <utility>
 #include <optional>
+#include <utility>
+#include <vector>
 
 namespace nyx::ecs
 {
@@ -16,7 +16,7 @@ namespace nyx::ecs
 #ifdef __cpp_lib_hardware_interference_size
     inline constexpr size_t nyx_chunk_size = {(std::hardware_constructive_interference_size * 64)};
 #else
-inline constexpr size_t nyx_chunk_size = {(64 * 64)};
+    inline constexpr size_t nyx_chunk_size = {(64 * 64)};
 #endif
 
     using size_type = size_t;
@@ -41,7 +41,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         static constexpr size_type offset = 14695981039346656037;
     };
 
-    //fnv1a hash
+    // fnv1a hash
     constexpr size_type hash_string(const std::string_view view)
     {
         size_type hash = fnv_helper<>::offset;
@@ -53,16 +53,10 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         return hash;
     }
 
-    constexpr size_type make_hash(const std::string_view view)
-    {
-        return hash_string(view);
-    }
+    constexpr size_type make_hash(const std::string_view view) { return hash_string(view); }
 
 
-    constexpr size_type make_hash(const size_type value)
-    {
-        return value;
-    }
+    constexpr size_type make_hash(const size_type value) { return value; }
 
     template <typename T, size_type ChunkSize = nyx_chunk_size>
     struct chunk
@@ -182,8 +176,7 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
     }
 
     template <typename T>
-    flex_array<T>::flex_array(const T& value):
-        size_(0)
+    flex_array<T>::flex_array(const T& value) : size_(0)
     {
         default_value_ = value;
     }
@@ -306,15 +299,54 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
             size_type sparse_index;
         };
 
+        struct find_result_type
+        {
+            packed_type* prev;
+            packed_type* curr;
+        };
+
         void set(const key_type& key, value_type&& value);
         void set(const key_type& key, const value_type& value);
+        void remove(const key_type& key);
         value_type* get(const key_type& key);
 
     private:
         size_type size_{0};
         flex_array<packed_type> packed_{{}};
         flex_array<size_type> sparse_{max_size_type};
+
+        std::optional<std::tuple<size_type, size_type>> find(const key_type& key);
     };
+
+
+    template <typename KeyType, typename ValueType, size_type BucketCount>
+    std::optional<std::tuple<size_type, size_type>>
+    dense_map<KeyType, ValueType, BucketCount>::find(const key_type& key)
+    {
+        const auto index = make_hash(key) % BucketCount;
+
+        if (sparse_[index] == max_size_type)
+        {
+            return std::nullopt;
+        }
+
+
+        size_type prev = max_size_type;
+        for (size_type curr = sparse_[index]; curr != max_size_type;)
+        {
+            const auto& packed = packed_[curr];
+
+            if (packed.key == key)
+            {
+                return std::make_tuple(prev, curr);
+            }
+
+            prev = curr;
+            curr = packed.next;
+        }
+
+        return std::nullopt;
+    }
 
     template <typename KeyType, typename ValueType, size_type BucketCount>
     void dense_map<KeyType, ValueType, BucketCount>::set(const key_type& key, value_type&& value)
@@ -335,13 +367,13 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         }
         else
         {
-            auto cursor = &(packed_[sparse_[index]]);
-            while (cursor->next != max_size_type)
+            auto curr = &packed_[sparse_[index]];
+            while (curr->next != max_size_type)
             {
-                cursor = &(packed_[cursor->next]);
+                curr = &(packed_[curr->next]);
             }
 
-            cursor->next = size_;
+            curr->next = size_;
         }
 
         size_++;
@@ -353,33 +385,77 @@ inline constexpr size_t nyx_chunk_size = {(64 * 64)};
         set(key, std::move(value));
     }
 
+
+    template <typename KeyType, typename ValueType, size_type BucketCount>
+    void dense_map<KeyType, ValueType, BucketCount>::remove(const key_type& key)
+    {
+        if (size_ == 0)
+        {
+            return;
+        }
+
+        auto has_key = false;
+        size_type packed_index = max_size_type;
+        size_type sparse_index = max_size_type;
+
+        if (auto opt = find(key); opt)
+        {
+            has_key = true;
+            auto [prev_index, curr_index] = opt.value();
+            auto curr = &packed_[curr_index];
+            auto prev = prev_index != max_size_type ? &packed_[prev_index] : nullptr;
+            packed_index = curr_index;
+            sparse_index = curr->sparse_index;
+
+            if (prev != nullptr)
+            {
+                prev->next = curr->next;
+            }
+            else if (curr->next != max_size_type)
+            {
+                sparse_[curr->sparse_index] = curr->next;
+            }
+            else
+            {
+                sparse_[curr->sparse_index] = max_size_type;
+            }
+        }
+
+        if (!has_key)
+        {
+            return;
+        }
+
+        size_--;
+
+        if (size_ > 0)
+        {
+            auto [prev_index, curr_index] = find(packed_[size_].key).value();
+            auto curr = &packed_[curr_index];
+            auto prev = prev_index != max_size_type ? &packed_[prev_index] : nullptr;
+
+            if (prev == nullptr)
+            {
+                sparse_[curr->sparse_index] = packed_index;
+            }
+            else
+            {
+                prev->next = packed_index;
+            }
+
+            packed_[packed_index] = std::move(*curr);
+        }
+    }
+
     template <typename KeyType, typename ValueType, size_type BucketCount>
     ValueType* dense_map<KeyType, ValueType, BucketCount>::get(const key_type& key)
     {
-        const auto index = make_hash(key) % BucketCount;
-
-        if (sparse_[index] == max_size_type)
+        if (auto opt = find(key); opt)
         {
-            return nullptr;
-        }
-
-        auto cursor = &(packed_[sparse_[index]]);
-
-        if (cursor->key == key)
-        {
-            return &(cursor->value);
-        }
-
-        while (cursor->next != max_size_type)
-        {
-            cursor = &(packed_[cursor->next]);
-
-            if (cursor->key == key)
-            {
-                return &(cursor->value);
-            }
+            auto [prev, curr] = opt.value();
+            return &packed_[curr].value;
         }
 
         return nullptr;
     }
-}
+} // namespace nyx::ecs
