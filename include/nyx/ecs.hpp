@@ -395,8 +395,7 @@ namespace nyx::ecs
         }
 
         auto has_key = false;
-        size_type packed_index = max_size_type;
-        size_type sparse_index = max_size_type;
+        size_type packed_index = 0;
 
         if (auto opt = find(key); opt)
         {
@@ -405,7 +404,6 @@ namespace nyx::ecs
             auto curr = &packed_[curr_index];
             auto prev = prev_index != max_size_type ? &packed_[prev_index] : nullptr;
             packed_index = curr_index;
-            sparse_index = curr->sparse_index;
 
             if (prev != nullptr)
             {
