@@ -23,11 +23,9 @@ namespace nyx::ecs
     using entity_type = size_t;
     inline constexpr size_type bucket_count = 4096;
     inline constexpr size_type max_size_type = std::numeric_limits<size_type>::max();
-
+    inline constexpr size_type invalid_id = max_size_type;
 
     constexpr bool validate_id(size_type value) { return value != max_size_type; }
-
-    constexpr void invalidate_id(size_type& value) { value = max_size_type; }
 
     template <typename = size_type>
     struct fnv_helper;
@@ -212,7 +210,7 @@ namespace nyx::ecs
     private:
         size_type size_{0};
         flex_array<packed_type> packed_{{}};
-        flex_array<size_type> sparse_{max_size_type};
+        flex_array<size_type> sparse_{invalid_id};
     };
 
     template <typename T>
@@ -230,7 +228,7 @@ namespace nyx::ecs
     void sparse_set<T>::set(const size_type index, T&& value)
     {
         sparse_.ensure(index);
-        if (sparse_[index] != max_size_type)
+        if (validate_id(sparse_[index]))
         {
             packed_[sparse_[index]].value = std::forward<T>(value);
             return;
@@ -250,7 +248,7 @@ namespace nyx::ecs
             return;
         }
 
-        if (sparse_[index] == max_size_type)
+        if (!validate_id(sparse_[index]))
         {
             return;
         }
@@ -260,8 +258,8 @@ namespace nyx::ecs
         packed_[sparse_[index]] = {std::move(value), index};
         sparse_[move_index] = sparse_[index];
 
-        sparse_[index] = max_size_type;
-        packed_[tail_index] = {T{}, max_size_type};
+        sparse_[index] = invalid_id;
+        packed_[tail_index] = {T{}, invalid_id};
         size_--;
     }
 
@@ -318,7 +316,7 @@ namespace nyx::ecs
     private:
         size_type size_{0};
         flex_array<packed_type> packed_{{}};
-        flex_array<size_type> sparse_{max_size_type};
+        flex_array<size_type> sparse_{invalid_id};
 
         std::optional<std::tuple<size_type, size_type>> find(const key_type& key);
     };
@@ -335,8 +333,7 @@ namespace nyx::ecs
             return std::nullopt;
         }
 
-        size_type prev_index;
-        invalidate_id(prev_index);
+        size_type prev_index = invalid_id;
         for (size_type curr_index = sparse_[index]; validate_id(curr_index);)
         {
             const auto& packed = packed_[curr_index];
@@ -402,7 +399,7 @@ namespace nyx::ecs
         {
             auto [prev_index, curr_index] = opt.value();
             auto curr = &packed_[curr_index];
-            auto prev = prev_index != max_size_type ? &packed_[prev_index] : nullptr;
+            auto prev = prev_index != invalid_id ? &packed_[prev_index] : nullptr;
 
             if (prev != nullptr)
             {
@@ -426,7 +423,7 @@ namespace nyx::ecs
 
             auto [last_prev_index, last_curr_index] = find(packed_[size_].key).value();
             auto last_curr = &packed_[last_curr_index];
-            auto last_prev = last_prev_index != max_size_type ? &packed_[last_prev_index] : nullptr;
+            auto last_prev = last_prev_index != invalid_id ? &packed_[last_prev_index] : nullptr;
 
             if (last_prev == nullptr)
             {
