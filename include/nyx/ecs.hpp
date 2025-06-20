@@ -24,6 +24,17 @@ namespace nyx::ecs
     inline constexpr size_type bucket_count = 4096;
     inline constexpr size_type max_size_type = std::numeric_limits<size_type>::max();
 
+
+    constexpr bool validate_id(size_type value)
+    {
+        return value != max_size_type;
+    }
+
+    constexpr void invalidate_id(size_type& value)
+    {
+        value = max_size_type;
+    }
+
     template <typename = size_type>
     struct fnv_helper;
 
@@ -325,24 +336,24 @@ namespace nyx::ecs
     {
         const auto index = make_hash(key) % BucketCount;
 
-        if (sparse_[index] == max_size_type)
+        if (!validate_id(sparse_[index]))
         {
             return std::nullopt;
         }
 
-
-        size_type prev = max_size_type;
-        for (size_type curr = sparse_[index]; curr != max_size_type;)
+        size_type prev_index;
+        invalidate_id(prev_index);
+        for (size_type curr_index = sparse_[index]; validate_id(curr_index);)
         {
-            const auto& packed = packed_[curr];
+            const auto& packed = packed_[curr_index];
 
             if (packed.key == key)
             {
-                return std::make_tuple(prev, curr);
+                return std::make_tuple(prev_index, curr_index);
             }
 
-            prev = curr;
-            curr = packed.next;
+            prev_index = curr_index;
+            curr_index = packed.next;
         }
 
         return std::nullopt;
@@ -358,17 +369,17 @@ namespace nyx::ecs
         auto& packed = packed_[size_];
         packed.key = key;
         packed.sparse_index = index;
-        packed.next = max_size_type;
+        invalidate_id(packed.next);
         packed.value = std::move(value);
 
-        if (sparse_[index] == max_size_type)
+        if (!validate_id(sparse_[index]))
         {
             sparse_[index] = size_;
         }
         else
         {
             auto curr = &packed_[sparse_[index]];
-            while (curr->next != max_size_type)
+            while (validate_id(curr->next))
             {
                 curr = &(packed_[curr->next]);
             }
@@ -385,7 +396,6 @@ namespace nyx::ecs
         set(key, std::move(value));
     }
 
-
     template <typename KeyType, typename ValueType, size_type BucketCount>
     void dense_map<KeyType, ValueType, BucketCount>::remove(const key_type& key)
     {
@@ -394,54 +404,46 @@ namespace nyx::ecs
             return;
         }
 
-        auto has_key = false;
-        size_type packed_index = 0;
-
         if (auto opt = find(key); opt)
         {
-            has_key = true;
             auto [prev_index, curr_index] = opt.value();
             auto curr = &packed_[curr_index];
             auto prev = prev_index != max_size_type ? &packed_[prev_index] : nullptr;
-            packed_index = curr_index;
 
             if (prev != nullptr)
             {
                 prev->next = curr->next;
             }
-            else if (curr->next != max_size_type)
+            else if (validate_id(curr->next))
             {
                 sparse_[curr->sparse_index] = curr->next;
             }
             else
             {
-                sparse_[curr->sparse_index] = max_size_type;
+                invalidate_id(sparse_[curr->sparse_index]);
             }
-        }
 
-        if (!has_key)
-        {
-            return;
-        }
+            size_--;
 
-        size_--;
-
-        if (size_ > 0)
-        {
-            auto [prev_index, curr_index] = find(packed_[size_].key).value();
-            auto curr = &packed_[curr_index];
-            auto prev = prev_index != max_size_type ? &packed_[prev_index] : nullptr;
-
-            if (prev == nullptr)
+            if (size_ == 0)
             {
-                sparse_[curr->sparse_index] = packed_index;
+                return;
+            }
+
+            auto [last_prev_index, last_curr_index] = find(packed_[size_].key).value();
+            auto last_curr = &packed_[last_curr_index];
+            auto last_prev = last_prev_index != max_size_type ? &packed_[last_prev_index] : nullptr;
+
+            if (last_prev == nullptr)
+            {
+                sparse_[last_curr->sparse_index] = curr_index;
             }
             else
             {
-                prev->next = packed_index;
+                last_prev->next = curr_index;
             }
 
-            packed_[packed_index] = std::move(*curr);
+            packed_[curr_index] = std::move(*last_curr);
         }
     }
 
