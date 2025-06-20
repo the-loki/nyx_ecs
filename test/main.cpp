@@ -26,6 +26,8 @@ int main()
     map.set("Hello World", vector_2d{1, 2});
 
     auto value = map.get("Hello World");
+    map.remove("Hello World");
+    value = map.get("Hello World");
 
     return 0;
 }

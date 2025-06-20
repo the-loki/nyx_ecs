@@ -179,7 +179,8 @@ namespace nyx::ecs
     }
 
     template <typename T>
-    flex_array<T>::flex_array(const T& value) : size_(0)
+    flex_array<T>::flex_array(const T& value) :
+        size_(0)
     {
         default_value_ = value;
     }
@@ -328,7 +329,7 @@ namespace nyx::ecs
     {
         const auto index = make_hash(key) % BucketCount;
 
-        if (!validate_id(sparse_[index]))
+        if (sparse_.size() <= index || !validate_id(sparse_[index]))
         {
             return std::nullopt;
         }
@@ -353,11 +354,21 @@ namespace nyx::ecs
     template <typename KeyType, typename ValueType, size_type BucketCount>
     void dense_map<KeyType, ValueType, BucketCount>::set(const key_type& key, value_type&& value)
     {
+        if (auto opt = find(key); opt)
+        {
+            auto [_, curr_index] = opt.value();
+            packed_[curr_index].value = std::move(opt.value);
+
+            return;
+        }
+
+
         const auto index = make_hash(key) % BucketCount;
         sparse_.ensure(index);
         packed_.ensure(size_);
 
         auto& packed = packed_[size_];
+
         packed.key = key;
         packed.sparse_index = index;
         invalidate_id(packed.next);
@@ -443,8 +454,8 @@ namespace nyx::ecs
     {
         if (auto opt = find(key); opt)
         {
-            auto [prev, curr] = opt.value();
-            return &packed_[curr].value;
+            auto [_, curr_index] = opt.value();
+            return &packed_[curr_index].value;
         }
 
         return nullptr;
