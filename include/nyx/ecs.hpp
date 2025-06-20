@@ -25,15 +25,9 @@ namespace nyx::ecs
     inline constexpr size_type max_size_type = std::numeric_limits<size_type>::max();
 
 
-    constexpr bool validate_id(size_type value)
-    {
-        return value != max_size_type;
-    }
+    constexpr bool validate_id(size_type value) { return value != max_size_type; }
 
-    constexpr void invalidate_id(size_type& value)
-    {
-        value = max_size_type;
-    }
+    constexpr void invalidate_id(size_type& value) { value = max_size_type; }
 
     template <typename = size_type>
     struct fnv_helper;
@@ -305,8 +299,8 @@ namespace nyx::ecs
         struct packed_type
         {
             key_type key;
-            size_type next;
             value_type value;
+            size_type next_index;
             size_type sparse_index;
         };
 
