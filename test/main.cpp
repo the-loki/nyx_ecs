@@ -11,7 +11,10 @@ struct vector_2d
 
 int main()
 {
-    nyx::ecs::sparse_set<vector_2d> storage;
+    using namespace nyx::ecs::detail;
+
+
+    sparse_set<vector_2d> storage;
     storage.set(10, vector_2d{100, 200, {1, 2, 3, 4}});
     storage.set(20, vector_2d{1, 2, {7,7,7,7}});
 
@@ -22,7 +25,7 @@ int main()
 
     storage.shrink_to_fit();
 
-    auto map = nyx::ecs::dense_map<std::string, vector_2d>();
+    auto map = dense_map<std::string, vector_2d>();
     map.set("Hello World", vector_2d{1, 2});
 
     auto value = map.get("Hello World");
