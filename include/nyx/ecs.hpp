@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <any>
 #include <chrono>
 #include <optional>
 #include <utility>
@@ -322,7 +323,6 @@ namespace nyx::ecs
         std::optional<std::tuple<size_type, size_type>> find(const key_type& key);
     };
 
-
     template <typename KeyType, typename ValueType, size_type BucketCount>
     std::optional<std::tuple<size_type, size_type>>
     dense_map<KeyType, ValueType, BucketCount>::find(const key_type& key)
@@ -460,4 +460,17 @@ namespace nyx::ecs
 
         return nullptr;
     }
+
+    template <typename ComponentType>
+    class storage
+    {
+        sparse_set<ComponentType> store_;
+    };
+
+    class registry
+    {
+        dense_map<std::string, std::any> storage_;
+    };
+
+
 } // namespace nyx::ecs
