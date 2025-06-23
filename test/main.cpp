@@ -9,20 +9,19 @@ struct vector_2d
     std::vector<int> v;
 };
 
+
 int main()
 {
     using namespace nyx::ecs::detail;
 
-
     sparse_set<vector_2d> storage;
     storage.set(10, vector_2d{100, 200, {1, 2, 3, 4}});
-    storage.set(20, vector_2d{1, 2, {7,7,7,7}});
+    storage.set(20, vector_2d{1, 2, {7, 7, 7, 7}});
 
     auto t = storage.get(10);
-
     storage.remove(10);
-    storage.remove(20);
 
+    storage.remove(20);
     storage.shrink_to_fit();
 
     auto map = dense_map<std::string, vector_2d>();
@@ -31,6 +30,11 @@ int main()
     auto value = map.get("Hello World");
     map.remove("Hello World");
     value = map.get("Hello World");
+
+
+    auto x = vector_2d{};
+    nyx::ecs::registry registry;
+    registry.set(0, vector_2d{});
 
     return 0;
 }

@@ -8,6 +8,7 @@
 #include <any>
 #include <chrono>
 #include <optional>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -24,6 +25,9 @@ namespace nyx::ecs
         inline constexpr size_type nyx_chunk_size = 1024;
 
         constexpr bool validate_id(size_type value) { return value != max_size_type; }
+
+        template <typename... Args>
+        concept IsRValue = ((std::is_rvalue_reference_v<Args&&> && ...));
 
         template <typename = size_type>
         struct fnv_helper;
@@ -353,7 +357,7 @@ namespace nyx::ecs
             if (auto opt = find(key); opt)
             {
                 auto [_, curr_index] = opt.value();
-                packed_[curr_index].value = value;
+                packed_[curr_index].value = std::forward<value_type>(value);
 
                 return;
             }
@@ -368,7 +372,7 @@ namespace nyx::ecs
             packed.key = key;
             packed.sparse_index = index;
             packed.next_index = invalid_id;
-            packed.value = std::move(value);
+            packed.value = std::forward<value_type>(value);
 
             if (!validate_id(sparse_[index]))
             {
@@ -461,8 +465,23 @@ namespace nyx::ecs
         class storage
         {
             sparse_set<ComponentType> store_;
+
+        public:
+            void remove(entity_type entity);
+            void set(entity_type entity, ComponentType&& component);
         };
 
+        template <typename ComponentType>
+        void storage<ComponentType>::remove(entity_type entity)
+        {
+            store_.remove(entity);
+        }
+
+        template <typename ComponentType>
+        void storage<ComponentType>::set(entity_type entity, ComponentType&& component)
+        {
+            store_.set(entity, std::forward<ComponentType>(component));
+        }
 
         class entity_pool
         {
@@ -504,7 +523,13 @@ namespace nyx::ecs
         detail::dense_map<std::string, std::any> storage_;
 
         template <typename ComponentType>
-        std::optional<detail::storage<ComponentType>> get_storage();
+        detail::storage<ComponentType>* get_storage();
+
+        template <typename ComponentType>
+        void set_component(entity_type entity, ComponentType&& component);
+
+        template <typename ComponentType>
+        void remove_component(entity_type entity);
 
     public:
         entity_type create();
@@ -512,26 +537,47 @@ namespace nyx::ecs
         void destroy(entity_type entity);
 
         template <typename... Args>
+            requires detail::IsRValue<Args&&...>
         void set(entity_type entity, Args&&... args);
 
-        template <typename ComponentType>
+        template <typename... Args>
         void remove(entity_type entity);
     };
 
     template <typename ComponentType>
-    std::optional<detail::storage<ComponentType>> registry::get_storage()
+    detail::storage<ComponentType>* registry::get_storage()
     {
-        return std::nullopt;
-    }
-
-    template <typename... Args>
-    void registry::set(const entity_type entity, Args&&... args)
-    {
+        return nullptr;
     }
 
     template <typename ComponentType>
+    void registry::set_component(entity_type entity, ComponentType&& component)
+    {
+        if (auto storage = get_storage<ComponentType>(); storage != nullptr)
+        {
+            storage->set(entity, std::forward<ComponentType>(component));
+        }
+    }
+    template <typename ComponentType>
+    void registry::remove_component(entity_type entity)
+    {
+        if (auto storage = get_storage<ComponentType>(); storage != nullptr)
+        {
+            storage->remove(entity);
+        }
+    }
+
+    template <typename... Args>
+        requires detail::IsRValue<Args&&...>
+    void registry::set(entity_type entity, Args&&... args)
+    {
+        (set_component(entity, std::forward<Args>(args)), ...);
+    }
+
+    template <typename... Args>
     void registry::remove(entity_type entity)
     {
+        (remove_component<Args>(entity), ...);
     }
 
     inline entity_type registry::create() { return entity_pool_.create(); }
