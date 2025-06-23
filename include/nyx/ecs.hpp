@@ -92,7 +92,6 @@ namespace nyx::ecs
         chunk<T, ChunkSize>::chunk(const T& value)
         {
             store_ = std::make_unique<std::byte[]>(nyx_chunk_size * sizeof(T));
-
             const auto data = reinterpret_cast<T*>(store_.get());
             std::uninitialized_fill(data, data + max_size, value);
         }
