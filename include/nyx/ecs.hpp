@@ -46,6 +46,7 @@ namespace nyx::ecs
         constexpr size_type hash_string(const std::string_view view)
         {
             size_type hash = fnv_helper<>::offset;
+
             for (const auto c : view)
             {
                 hash = (hash ^ static_cast<size_type>(c)) * fnv_helper<>::prime;
@@ -55,7 +56,6 @@ namespace nyx::ecs
         }
 
         constexpr size_type make_hash(const std::string_view view) { return hash_string(view); }
-
 
         constexpr size_type make_hash(const size_type value) { return value; }
 
@@ -177,8 +177,7 @@ namespace nyx::ecs
         }
 
         template <typename T>
-        flex_array<T>::flex_array(const T& value) :
-            size_(0)
+        flex_array<T>::flex_array(const T& value) : size_(0)
         {
             default_value_ = value;
         }
@@ -342,7 +341,7 @@ namespace nyx::ecs
                 }
 
                 prev_index = curr_index;
-                curr_index = packed.next;
+                curr_index = packed.next_index;
             }
 
             return std::nullopt;
@@ -354,7 +353,7 @@ namespace nyx::ecs
             if (auto opt = find(key); opt)
             {
                 auto [_, curr_index] = opt.value();
-                packed_[curr_index].value = std::move(opt.value);
+                packed_[curr_index].value = value;
 
                 return;
             }
@@ -368,7 +367,7 @@ namespace nyx::ecs
 
             packed.key = key;
             packed.sparse_index = index;
-            invalidate_id(packed.next);
+            packed.next_index = invalid_id;
             packed.value = std::move(value);
 
             if (!validate_id(sparse_[index]))
@@ -378,12 +377,12 @@ namespace nyx::ecs
             else
             {
                 auto curr = &packed_[sparse_[index]];
-                while (validate_id(curr->next))
+                while (validate_id(curr->next_index))
                 {
-                    curr = &(packed_[curr->next]);
+                    curr = &packed_[curr->next_index];
                 }
 
-                curr->next = size_;
+                curr->next_index = size_;
             }
 
             size_++;
@@ -411,15 +410,15 @@ namespace nyx::ecs
 
                 if (prev != nullptr)
                 {
-                    prev->next = curr->next;
+                    prev->next_index = curr->next_index;
                 }
-                else if (validate_id(curr->next))
+                else if (validate_id(curr->next_index))
                 {
-                    sparse_[curr->sparse_index] = curr->next;
+                    sparse_[curr->sparse_index] = curr->next_index;
                 }
                 else
                 {
-                    invalidate_id(sparse_[curr->sparse_index]);
+                    sparse_[curr->sparse_index] = invalid_id;
                 }
 
                 size_--;
@@ -439,7 +438,7 @@ namespace nyx::ecs
                 }
                 else
                 {
-                    last_prev->next = curr_index;
+                    last_prev->next_index = curr_index;
                 }
 
                 packed_[curr_index] = std::move(*last_curr);
@@ -496,15 +495,12 @@ namespace nyx::ecs
             return entity;
         }
 
-        inline void entity_pool::destroy(entity_type entity)
-        {
-            free_list_[size_++] = entity;
-        }
-    }
+        inline void entity_pool::destroy(entity_type entity) { free_list_[size_++] = entity; }
+    } // namespace detail
 
     class registry
     {
-        detail::entity_pool entity_pool_;
+        detail::entity_pool entity_pool_{};
         detail::dense_map<std::string, std::any> storage_;
 
         template <typename ComponentType>
@@ -515,8 +511,8 @@ namespace nyx::ecs
 
         void destroy(entity_type entity);
 
-        template <typename ComponentType>
-        void set(entity_type entity, ComponentType&& component);
+        template <typename... Args>
+        void set(entity_type entity, Args&&... args);
 
         template <typename ComponentType>
         void remove(entity_type entity);
@@ -528,26 +524,18 @@ namespace nyx::ecs
         return std::nullopt;
     }
 
-    template <typename ComponentType>
-    void registry::set(const entity_type entity, ComponentType&& component)
+    template <typename... Args>
+    void registry::set(const entity_type entity, Args&&... args)
     {
-
     }
 
     template <typename ComponentType>
     void registry::remove(entity_type entity)
     {
-
     }
 
-    inline entity_type registry::create()
-    {
-        return entity_pool_.create();
-    }
+    inline entity_type registry::create() { return entity_pool_.create(); }
 
-    inline void registry::destroy(entity_type entity)
-    {
-
-    }
+    inline void registry::destroy(entity_type entity) {}
 
 } // namespace nyx::ecs
