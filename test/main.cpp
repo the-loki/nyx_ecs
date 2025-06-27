@@ -5,12 +5,12 @@
 namespace XX
 {
 
-    struct  vector_2d
+    struct vector_2d
     {
         int x;
         int y;
     };
-}
+} // namespace XX
 
 
 int main()

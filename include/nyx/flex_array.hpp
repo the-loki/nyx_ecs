@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include <vector>
 #include <memory>
+#include <vector>
 
 #include <nyx/common.h>
 
@@ -36,7 +36,7 @@ namespace nyx::ecs::detail
     };
 
     template <typename T, size_type ChunkSize>
-    flex_array<T, ChunkSize>::flex_array(): default_value_({}), size_(0)
+    flex_array<T, ChunkSize>::flex_array() : default_value_({}), size_(0)
     {
     }
 
