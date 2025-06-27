@@ -4,3 +4,13 @@
 
 
 #pragma once
+
+
+namespace nyx::ecs::detail
+{
+    class registry
+    {
+    protected:
+
+    };
+} // namespace nyx::ecs::detail

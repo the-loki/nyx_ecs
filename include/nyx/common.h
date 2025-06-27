@@ -17,5 +17,6 @@ namespace nyx::ecs::detail
     using string_view = std::string_view;
     using source_location = std::source_location;
 
-
+    inline constexpr size_type invalid_id = std::numeric_limits<size_type>::max();;
+    constexpr bool validate_id(size_type value) { return value != invalid_id; }
 } // namespace nyx::ecs::detail

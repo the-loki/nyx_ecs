@@ -15,6 +15,7 @@ namespace nyx::ecs::detail
     struct type_info
     {
         size_type size;
+        size_type index;
         std::string name;
         size_type alignment;
     };

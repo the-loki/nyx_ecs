@@ -9,7 +9,6 @@
 
 namespace nyx::ecs::detail
 {
-
     struct type_utility
     {
         template <typename T>
