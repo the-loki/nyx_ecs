@@ -49,7 +49,7 @@ namespace nyx::ecs::detail
     template <>
     constexpr size_type fnv_hash<size_type>(const size_type key)
     {
-       return key;
+        return key;
     }
 
 } // namespace nyx::ecs::detail
