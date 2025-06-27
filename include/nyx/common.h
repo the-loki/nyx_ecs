@@ -18,14 +18,4 @@ namespace nyx::ecs::detail
     using source_location = std::source_location;
 
 
-
-
-
-
-
-
-
-
-
-
 } // namespace nyx::ecs::detail

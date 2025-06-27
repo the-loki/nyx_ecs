@@ -6,12 +6,6 @@ union vector_2d
 };
 
 
-
-
-
-
-
-
 int main()
 {
     constexpr auto type_name = nyx::ecs::detail::type_utility::get_type_name<vector_2d>();

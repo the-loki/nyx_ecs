@@ -19,7 +19,7 @@ namespace nyx::ecs::detail
         }
 
     protected:
-        consteval static auto get_pretty_type_name(const source_location& loc = source_location::current())
+        consteval static auto get_pretty_type_name(const source_location& location = source_location::current())
         {
 #if defined __clang__ || defined __GNUC__
             auto prefix = '=';
@@ -31,7 +31,7 @@ namespace nyx::ecs::detail
             static_assert(false, "unsupported compiler.")
 #endif
 
-            const string_view full_name = loc.function_name();
+            const string_view full_name = location.function_name();
             auto start = full_name.find_first_not_of(' ', full_name.find_first_of(prefix) + 1);
             auto value = full_name.substr(start, full_name.find_last_of(suffix) - start);
 
