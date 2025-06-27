@@ -1,10 +1,14 @@
 #include <iostream>
 #include <nyx/ecs.hpp>
 
-union  vector_2d
+union vector_2d
 {
-
 };
+
+
+
+
+
 
 
 

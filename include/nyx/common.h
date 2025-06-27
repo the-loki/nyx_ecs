@@ -5,9 +5,9 @@
 
 #pragma once
 
+#include <source_location>
 #include <string>
 #include <string_view>
-#include <source_location>
 
 namespace nyx::ecs::detail
 {
@@ -16,4 +16,16 @@ namespace nyx::ecs::detail
     using string = std::string;
     using string_view = std::string_view;
     using source_location = std::source_location;
+
+
+
+
+
+
+
+
+
+
+
+
 } // namespace nyx::ecs::detail
