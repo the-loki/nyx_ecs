@@ -9,6 +9,8 @@
 #include <nyx/flex_array.hpp>
 #include <optional>
 
+#include "hash.hpp"
+
 namespace nyx::ecs::detail
 {
     template <typename KeyType, typename ValueType, size_type BucketCount = 256>
@@ -33,6 +35,7 @@ namespace nyx::ecs::detail
 
         void set(const key_type& key, value_type&& value);
         void set(const key_type& key, const value_type& value);
+        bool has_key(const key_type& key);
         void remove(const key_type& key);
         value_type* get(const key_type& key);
 
@@ -48,7 +51,7 @@ namespace nyx::ecs::detail
     std::optional<std::tuple<size_type, size_type>>
     dense_map<KeyType, ValueType, BucketCount>::find(const key_type& key)
     {
-        const auto index = make_hash(key) % BucketCount;
+        const auto index = fnv_hash(key) % BucketCount;
 
         if (sparse_.size() <= index || !validate_id(sparse_[index]))
         {
@@ -84,7 +87,7 @@ namespace nyx::ecs::detail
         }
 
 
-        const auto index = make_hash(key) % BucketCount;
+        const auto index = fnv_hash(key) % BucketCount;
         sparse_.ensure(index);
         packed_.ensure(size_);
 
@@ -117,6 +120,16 @@ namespace nyx::ecs::detail
     void dense_map<KeyType, ValueType, BucketCount>::set(const key_type& key, const value_type& value)
     {
         set(key, std::move(value));
+    }
+    template <typename KeyType, typename ValueType, size_type BucketCount>
+    bool dense_map<KeyType, ValueType, BucketCount>::has_key(const key_type& key)
+    {
+        if (auto opt = find(key); opt)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     template <typename KeyType, typename ValueType, size_type BucketCount>

@@ -2,21 +2,19 @@
 #include <nyx/ecs.hpp>
 
 
-namespace XX
+struct vector_2d
 {
-
-    struct vector_2d
-    {
-        int x;
-        int y;
-    };
-} // namespace XX
+    int x;
+    int y;
+};
 
 
 int main()
 {
-    // constexpr auto type_name = nyx::ecs::detail::type_utility::get_type_name<XX::vector_2d>();
-    // std::cout << type_name << std::endl;
+    using namespace nyx::ecs;
+
+    registry registry;
+    auto type_info = registry.get_type_info<vector_2d>();
 
 
     return 0;
