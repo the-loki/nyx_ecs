@@ -5,12 +5,14 @@
 
 #pragma once
 
+#include<ranges>
 #include <atomic>
 #include <mutex>
 #include <shared_mutex>
 #include <nyx/dense_map.hpp>
 #include <nyx/type_info.hpp>
 #include <nyx/type_utility.hpp>
+#include <nyx/arch_type.hpp>
 
 namespace nyx::ecs::detail
 {
@@ -29,12 +31,16 @@ namespace nyx::ecs::detail
         std::atomic<size_type> type_count_;
         flex_array<type_info> type_info_list_;
         dense_map<std::string, size_type> type_info_index_map_;
+        dense_map<arch_type::unique_id, arch_type> arch_type_map_;
 
     private:
         size_type get_type_index();
 
         template <typename T>
         type_info create_type_info();
+
+        template <typename ...Args>
+        std::vector<arch_type*> get_matched_arch_types();
 
         std::shared_mutex register_type_mutex_;
     };
@@ -67,7 +73,6 @@ namespace nyx::ecs::detail
         return get_type_info(name);
     }
 
-
     template <typename T>
     type_info registry::create_type_info()
     {
@@ -76,6 +81,15 @@ namespace nyx::ecs::detail
                          .name = string(type_utility::get_type_name<T>()),
                          .alignment = alignof(T)
         };
+    }
+
+    template <typename ... Args>
+    std::vector<arch_type*> registry::get_matched_arch_types()
+    {
+        // const auto types = std::initializer_list<type_info*>{get_type_info<Args>()...};
+
+
+        return {};
     }
 
 
@@ -105,5 +119,6 @@ namespace nyx::ecs::detail
     }
 
     inline size_type registry::get_type_index() { return type_count_++; }
+
 
 } // namespace nyx::ecs::detail

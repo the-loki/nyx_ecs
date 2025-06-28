@@ -18,23 +18,39 @@ namespace nyx::ecs::detail
         std::byte* data;
     };
 
-    struct arch_type_id
+
+    struct arch_type
     {
-        std::vector<size_type> sorted_column_index_list;
-
-        explicit arch_type_id(const std::vector<size_type>& column_index_list)
+        struct unique_id
         {
-            sorted_column_index_list = column_index_list;
-            std::sort(sorted_column_index_list.begin(), sorted_column_index_list.end());
-        }
+            std::vector<size_type> sorted_column_index_list;
 
-        static arch_type_id create(const std::vector<size_type>& column_index_list)
-        {
-            return arch_type_id(column_index_list);
-        }
+            unique_id() = default;
+            unique_id(const unique_id&) = default;
+
+            explicit unique_id(const std::vector<size_type>& column_index_list)
+            {
+                sorted_column_index_list = column_index_list;
+                std::sort(sorted_column_index_list.begin(), sorted_column_index_list.end());
+            }
+
+            static unique_id create(const std::vector<size_type>& column_index_list)
+            {
+                return unique_id(column_index_list);
+            }
+        };
+
+
+        unique_id id;
+        size_type size;
+        size_type entity_size;
+        size_type column_size;
+        sparse_set<entity_store> store_set{};
+        std::vector<size_type> column_index_list{};
     };
 
-    constexpr size_type fnv_hash(const arch_type_id& key)
+
+    constexpr size_type fnv_hash(const arch_type::unique_id& key)
     {
         size_type hash = fnv_helper<>::offset;
 
@@ -46,18 +62,10 @@ namespace nyx::ecs::detail
         return hash;
     }
 
-    inline bool operator==(const arch_type_id& lhs, const arch_type_id& rhs)
+    inline bool operator==(const arch_type::unique_id& lhs, const arch_type::unique_id& rhs)
     {
         return lhs.sorted_column_index_list == rhs.sorted_column_index_list;
     }
 
-    struct arch_type
-    {
-        size_type size;
-        arch_type_id id;
-        size_type entity_size;
-        size_type column_size;
-        sparse_set<entity_store> store_set;
-        std::vector<size_type> column_index_list;
-    };
+
 }

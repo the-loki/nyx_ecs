@@ -44,7 +44,7 @@ namespace nyx::ecs::detail
 
     private:
         size_type size_{0};
-        flex_array<packed_type> packed_{{}};
+        flex_array<packed_type> packed_{};
         flex_array<size_type> sparse_{invalid_id};
 
         std::optional<std::tuple<size_type, size_type>> find(const find_key_type& key);

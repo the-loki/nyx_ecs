@@ -36,7 +36,7 @@ namespace nyx::ecs::detail
 
     private:
         size_type size_{0};
-        flex_array<packed_type> packed_{{}};
+        flex_array<packed_type> packed_{};
         flex_array<size_type> sparse_{invalid_id};
     };
 
