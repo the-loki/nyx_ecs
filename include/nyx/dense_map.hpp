@@ -13,7 +13,7 @@
 
 namespace nyx::ecs::detail
 {
-    template <typename KeyType, typename ValueType, size_type BucketCount = 256>
+    template <typename KeyType, typename ValueType, size_type BucketCount = 1024>
     struct dense_map
     {
         using key_type = KeyType;
@@ -121,6 +121,7 @@ namespace nyx::ecs::detail
     {
         set(key, std::move(value));
     }
+
     template <typename KeyType, typename ValueType, size_type BucketCount>
     bool dense_map<KeyType, ValueType, BucketCount>::has_key(const key_type& key)
     {
@@ -194,6 +195,4 @@ namespace nyx::ecs::detail
 
         return nullptr;
     }
-
-
 } // namespace nyx::ecs::detail
