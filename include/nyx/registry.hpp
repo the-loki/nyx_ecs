@@ -27,6 +27,9 @@ namespace nyx::ecs::detail
         const type_info* get_type_info(size_type index);
         const type_info* get_type_info(std::string_view name);
 
+        template <typename... Args>
+        std::vector<arch_type*> get_matched_arch_types();
+
     protected:
         std::atomic<size_type> type_count_;
         flex_array<type_info> type_info_list_;
@@ -38,9 +41,6 @@ namespace nyx::ecs::detail
 
         template <typename T>
         type_info create_type_info();
-
-        template <typename ...Args>
-        std::vector<arch_type*> get_matched_arch_types();
 
         std::shared_mutex register_type_mutex_;
     };
@@ -68,6 +68,7 @@ namespace nyx::ecs::detail
             auto index = type_info.index;
             type_info_list_.ensure(index);
             type_info_list_[index] = std::move(type_info);
+            type_info_index_map_.set(name, index);
         }
 
         return get_type_info(name);
@@ -83,11 +84,10 @@ namespace nyx::ecs::detail
         };
     }
 
-    template <typename ... Args>
+    template <typename... Args>
     std::vector<arch_type*> registry::get_matched_arch_types()
     {
-        // const auto types = std::initializer_list<type_info*>{get_type_info<Args>()...};
-
+        auto type_ids = std::vector{(get_type_info<Args>()->index)...};
 
         return {};
     }

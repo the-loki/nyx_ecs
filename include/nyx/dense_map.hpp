@@ -89,7 +89,6 @@ namespace nyx::ecs::detail
             return;
         }
 
-
         const auto index = fnv_hash(key) % BucketCount;
         sparse_.ensure(index);
         packed_.ensure(size_);
@@ -122,7 +121,8 @@ namespace nyx::ecs::detail
     template <typename KeyType, typename ValueType, size_type BucketCount>
     void dense_map<KeyType, ValueType, BucketCount>::set(const find_key_type& key, const value_type& value)
     {
-        set(key, std::move(value));
+        auto copy = value;
+        set(key, std::move(copy));
     }
 
     template <typename KeyType, typename ValueType, size_type BucketCount>

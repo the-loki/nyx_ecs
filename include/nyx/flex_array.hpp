@@ -17,8 +17,8 @@ namespace nyx::ecs::detail
     {
         flex_array();
 
-        template<typename  ...Args>
-        explicit flex_array(Args&& ...args);
+        template <typename... Args>
+        explicit flex_array(Args&&... args);
 
         flex_array(const flex_array&) = delete;
         flex_array& operator=(const flex_array&) = delete;
@@ -44,8 +44,9 @@ namespace nyx::ecs::detail
     }
 
     template <typename T, size_type ChunkSize>
-    template <typename ... Args>
-    flex_array<T, ChunkSize>::flex_array(Args&&... args) :  size_(0), default_value_(std::forward<Args>(args)...)
+    template <typename... Args>
+    flex_array<T, ChunkSize>::flex_array(Args&&... args) :
+        size_(0), default_value_(std::forward<Args>(args)...)
     {
     }
 
