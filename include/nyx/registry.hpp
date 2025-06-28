@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <mutex>
+#include <shared_mutex>
 #include <nyx/dense_map.hpp>
 #include <nyx/type_info.hpp>
 #include <nyx/type_utility.hpp>
@@ -21,10 +22,13 @@ namespace nyx::ecs::detail
 
         template <typename T>
         const type_info* get_type_info();
+        const type_info* get_type_info(size_type index);
+        const type_info* get_type_info(std::string_view name);
 
     protected:
-        std::atomic<size_type> type_index_;
-        dense_map<std::string, type_info> type_info_map_;
+        std::atomic<size_type> type_count_;
+        flex_array<type_info> type_info_list_;
+        dense_map<std::string, size_type> type_info_index_map_;
 
     private:
         size_type get_type_index();
@@ -32,32 +36,35 @@ namespace nyx::ecs::detail
         template <typename T>
         type_info create_type_info();
 
-        std::mutex register_type_mutex_;
+        std::shared_mutex register_type_mutex_;
     };
 
 
     template <typename T>
     const type_info* registry::get_type_info()
     {
-        const auto type_name = string(type_utility::get_type_name<T>());
+        const auto name = string(type_utility::get_type_name<T>());
 
-        if (auto type_info = type_info_map_.get(type_name); type_info != nullptr)
+        if (const auto type_info = get_type_info(name); type_info != nullptr)
         {
             return type_info;
         }
 
         {
-            std::lock_guard<std::mutex> lock(register_type_mutex_);
+            std::lock_guard lock(register_type_mutex_);
 
-            if (auto type_info = type_info_map_.get(type_name); type_info != nullptr)
+            if (auto index = type_info_index_map_.get(name); index != nullptr)
             {
-                return type_info;
+                return &type_info_list_[*index];
             }
 
-            type_info_map_.set(type_name, create_type_info<T>());
+            auto type_info = create_type_info<T>();
+            auto index = type_info.index;
+            type_info_list_.ensure(index);
+            type_info_list_[index] = std::move(type_info);
         }
 
-        return type_info_map_.get(type_name);
+        return get_type_info(name);
     }
 
 
@@ -71,6 +78,32 @@ namespace nyx::ecs::detail
         };
     }
 
-    inline size_type registry::get_type_index() { return type_index_++; }
+
+    inline const type_info* registry::get_type_info(const std::string_view name)
+    {
+        std::shared_lock lock(register_type_mutex_);
+
+        if (auto index = type_info_index_map_.get(name); index != nullptr)
+        {
+            return &type_info_list_[*index];
+        }
+
+        return nullptr;
+    }
+
+
+    inline const type_info* registry::get_type_info(size_type index)
+    {
+        std::shared_lock lock(register_type_mutex_);
+
+        if (index < type_count_)
+        {
+            return &type_info_list_[index];
+        }
+
+        return nullptr;
+    }
+
+    inline size_type registry::get_type_index() { return type_count_++; }
 
 } // namespace nyx::ecs::detail

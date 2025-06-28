@@ -19,6 +19,6 @@ namespace nyx::ecs::detail
 
     inline constexpr size_type chunk_capacity = 1024;
     inline constexpr size_type invalid_id = std::numeric_limits<size_type>::max();
-    ;
+
     constexpr bool validate_id(size_type value) { return value != invalid_id; }
 } // namespace nyx::ecs::detail

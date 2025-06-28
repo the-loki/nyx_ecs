@@ -26,14 +26,7 @@ namespace nyx::ecs::detail
         static constexpr size_type offset = 14695981039346656037;
     };
 
-    template <typename T>
-    constexpr size_type fnv_hash(const T)
-    {
-        return 0;
-    }
-
-    template <>
-    constexpr size_type fnv_hash<std::string_view>(const std::string_view key)
+    constexpr size_type fnv_hash(const std::string_view key)
     {
 
         size_type hash = fnv_helper<>::offset;
@@ -46,8 +39,7 @@ namespace nyx::ecs::detail
         return hash;
     }
 
-    template <>
-    constexpr size_type fnv_hash<size_type>(const size_type key)
+    constexpr size_type fnv_hash(const size_type key)
     {
         return key;
     }

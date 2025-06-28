@@ -8,6 +8,8 @@
 #include <nyx/common.h>
 #include <nyx/flex_array.hpp>
 #include <optional>
+#include <type_traits>
+
 
 #include "hash.hpp"
 
@@ -18,6 +20,7 @@ namespace nyx::ecs::detail
     {
         using key_type = KeyType;
         using value_type = ValueType;
+        using find_key_type = std::conditional_t<std::is_same_v<std::decay_t<KeyType>, std::string>, string_view, std::decay_t<KeyType>>;
 
         struct packed_type
         {
@@ -33,23 +36,23 @@ namespace nyx::ecs::detail
             packed_type* curr;
         };
 
-        void set(const key_type& key, value_type&& value);
-        void set(const key_type& key, const value_type& value);
-        bool has_key(const key_type& key);
-        void remove(const key_type& key);
-        value_type* get(const key_type& key);
+        void set(const find_key_type& key, value_type&& value);
+        void set(const find_key_type& key, const value_type& value);
+        bool has_key(const find_key_type& key);
+        void remove(const find_key_type& key);
+        value_type* get(const find_key_type& key);
 
     private:
         size_type size_{0};
         flex_array<packed_type> packed_{{}};
         flex_array<size_type> sparse_{invalid_id};
 
-        std::optional<std::tuple<size_type, size_type>> find(const key_type& key);
+        std::optional<std::tuple<size_type, size_type>> find(const find_key_type& key);
     };
 
     template <typename KeyType, typename ValueType, size_type BucketCount>
     std::optional<std::tuple<size_type, size_type>>
-    dense_map<KeyType, ValueType, BucketCount>::find(const key_type& key)
+    dense_map<KeyType, ValueType, BucketCount>::find(const find_key_type& key)
     {
         const auto index = fnv_hash(key) % BucketCount;
 
@@ -76,7 +79,7 @@ namespace nyx::ecs::detail
     }
 
     template <typename KeyType, typename ValueType, size_type BucketCount>
-    void dense_map<KeyType, ValueType, BucketCount>::set(const key_type& key, value_type&& value)
+    void dense_map<KeyType, ValueType, BucketCount>::set(const find_key_type& key, value_type&& value)
     {
         if (auto opt = find(key); opt)
         {
@@ -117,13 +120,13 @@ namespace nyx::ecs::detail
     }
 
     template <typename KeyType, typename ValueType, size_type BucketCount>
-    void dense_map<KeyType, ValueType, BucketCount>::set(const key_type& key, const value_type& value)
+    void dense_map<KeyType, ValueType, BucketCount>::set(const find_key_type& key, const value_type& value)
     {
         set(key, std::move(value));
     }
 
     template <typename KeyType, typename ValueType, size_type BucketCount>
-    bool dense_map<KeyType, ValueType, BucketCount>::has_key(const key_type& key)
+    bool dense_map<KeyType, ValueType, BucketCount>::has_key(const find_key_type& key)
     {
         if (auto opt = find(key); opt)
         {
@@ -134,7 +137,7 @@ namespace nyx::ecs::detail
     }
 
     template <typename KeyType, typename ValueType, size_type BucketCount>
-    void dense_map<KeyType, ValueType, BucketCount>::remove(const key_type& key)
+    void dense_map<KeyType, ValueType, BucketCount>::remove(const find_key_type& key)
     {
         if (size_ == 0)
         {
@@ -185,7 +188,7 @@ namespace nyx::ecs::detail
     }
 
     template <typename KeyType, typename ValueType, size_type BucketCount>
-    ValueType* dense_map<KeyType, ValueType, BucketCount>::get(const key_type& key)
+    ValueType* dense_map<KeyType, ValueType, BucketCount>::get(const find_key_type& key)
     {
         if (auto opt = find(key); opt)
         {
@@ -195,4 +198,6 @@ namespace nyx::ecs::detail
 
         return nullptr;
     }
+
+
 } // namespace nyx::ecs::detail
