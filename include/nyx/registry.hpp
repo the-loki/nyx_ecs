@@ -12,7 +12,7 @@
 #include <nyx/dense_map.hpp>
 #include <nyx/type_info.hpp>
 #include <nyx/type_utility.hpp>
-#include <nyx/arch_type.hpp>
+#include <nyx/table.hpp>
 
 namespace nyx::ecs::detail
 {
@@ -28,13 +28,13 @@ namespace nyx::ecs::detail
         const type_info* get_type_info(std::string_view name);
 
         template <typename... Args>
-        std::vector<arch_type*> get_matched_arch_types();
+        std::vector<table*> get_matched_arch_types();
 
     protected:
         std::atomic<size_type> type_count_;
+        dense_map<table_id, table> table_map_;
         flex_array<type_info> type_info_list_;
         dense_map<std::string, size_type> type_info_index_map_;
-        dense_map<arch_type::unique_id, arch_type> arch_type_map_;
 
     private:
         size_type get_type_index();
@@ -44,7 +44,6 @@ namespace nyx::ecs::detail
 
         std::shared_mutex register_type_mutex_;
     };
-
 
     template <typename T>
     const type_info* registry::get_type_info()
@@ -85,7 +84,7 @@ namespace nyx::ecs::detail
     }
 
     template <typename... Args>
-    std::vector<arch_type*> registry::get_matched_arch_types()
+    std::vector<table*> registry::get_matched_arch_types()
     {
         auto type_ids = std::vector{(get_type_info<Args>()->index)...};
 
