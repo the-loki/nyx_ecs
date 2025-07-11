@@ -13,9 +13,6 @@ namespace nyx::ecs::detail
 {
     using size_type = size_t;
     using id_type = size_type;
-    using string = std::string;
-    using string_view = std::string_view;
-    using source_location = std::source_location;
 
     inline constexpr size_type chunk_capacity = 1024;
     inline constexpr size_type invalid_id = std::numeric_limits<size_type>::max();
